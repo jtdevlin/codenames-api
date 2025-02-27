@@ -33,12 +33,24 @@ func CreateGame(context *gin.Context) {
 	newGame.CreatedTimestamp = time.Now()
 
 	service.SetCardsForGame(&newGame)
+	newGame.State = model.Created
 	service.Games[newGame.ID] = &newGame
 	context.IndentedJSON(http.StatusCreated, newGame)
 }
 
+func StartGame(context *gin.Context) {
+	gameId := context.Param("id")
+	game, err := service.StartGame(gameId)
+	if err != nil {
+		context.IndentedJSON(http.StatusBadRequest, "Unable to start game")
+		return
+	}
+
+	context.IndentedJSON(http.StatusOK, game)
+}
+
 func AddUserToGame(context *gin.Context) {
-	gameID := context.Param("id")
+	gameId := context.Param("id")
 	var user model.User
 
 	if err := context.BindJSON(&user); err != nil {
@@ -46,11 +58,28 @@ func AddUserToGame(context *gin.Context) {
 		return
 	}
 
-	game, ok := service.Games[gameID]
-	if !ok {
-		context.IndentedJSON(http.StatusPreconditionFailed, fmt.Sprintf("Game ID does not exist: %s", gameID))
+	game, err := service.AddUserToGame(gameId, user)
+	if err != nil {
+		context.IndentedJSON(http.StatusPreconditionFailed, fmt.Sprintf("Game ID does not exist: %s", gameId))
 		return
 	}
-	game.Users = append(game.Users, user)
+	context.IndentedJSON(http.StatusOK, game)
+}
+
+func SelectCard(context *gin.Context) {
+	gameID := context.Param("id")
+	cardName := context.Param("cardValue")
+
+	var user model.User
+
+	if err := context.BindJSON(&user); err != nil {
+		context.IndentedJSON(http.StatusBadRequest, "Provided user is malformed")
+		return
+	}
+
+	game, err := service.SelectedCard(gameID, cardName, user)
+	if err != nil {
+		context.IndentedJSON(http.StatusBadRequest, "No match for provided card and game ID")
+	}
 	context.IndentedJSON(http.StatusOK, game)
 }

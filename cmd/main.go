@@ -17,7 +17,9 @@ func main() {
 	}))
 	router.GET("games", controller.GetGames)
 	router.GET("games/:id", controller.GetGameById)
+	router.PATCH("games/:id", controller.StartGame)
 	router.POST("games", controller.CreateGame)
 	router.PATCH("games/:id/users", controller.AddUserToGame)
+	router.PATCH("games/:id/cards/:cardValue", controller.SelectCard)
 	router.Run()
 }
