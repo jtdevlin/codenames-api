@@ -27,6 +27,14 @@ func (ct CardType) String() string {
 	return cardName[ct]
 }
 
+func (ct CardType) OtherTeam() CardType {
+	if ct == Blue {
+		return Red
+	} else if ct == Red {
+		return Blue
+	}
+	return Unassigned
+}
 func (ct *CardType) FromString(cardType string) CardType {
 	return map[string]CardType{
 		"unassigned": Unassigned,

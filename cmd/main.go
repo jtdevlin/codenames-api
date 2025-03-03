@@ -21,5 +21,6 @@ func main() {
 	router.POST("games", controller.CreateGame)
 	router.PATCH("games/:id/users", controller.AddUserToGame)
 	router.PATCH("games/:id/cards/:cardValue", controller.SelectCard)
+	router.POST("/games/:id/prompt", controller.SetPromptForGameId)
 	router.Run()
 }

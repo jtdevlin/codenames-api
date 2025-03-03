@@ -83,3 +83,37 @@ func SelectCard(context *gin.Context) {
 	}
 	context.IndentedJSON(http.StatusOK, game)
 }
+
+type SetPromptRequest struct {
+	Clue   string `json:"clue" binding:"required"`
+	Number int    `json:"number" binding:"required"`
+}
+
+func SetPromptForGameId(c *gin.Context) {
+	gameID := c.Param("id")
+
+	var req SetPromptRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	game, err := service.GetGameByID(gameID)
+	if err != nil {
+		c.IndentedJSON(http.StatusNotFound, gin.H{"error": "Game not found"})
+		return
+	}
+
+	game.Prompt = &model.Prompt{
+		Clue:   req.Clue,
+		Number: req.Number,
+	}
+	game.GuessesRemaining = req.Number + 1
+	updatedGame, err := service.UpdateGame(game)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": "Failed to update game"})
+		return
+	}
+
+	c.IndentedJSON(http.StatusOK, updatedGame)
+}

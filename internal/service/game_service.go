@@ -37,6 +37,19 @@ func StartGame(gameId string) (model.Game, error) {
 	return *game, nil
 }
 
+func GetGameByID(id string) (*model.Game, error) {
+	game, exists := Games[id]
+	if !exists {
+		return nil, errors.New("game not found for ID: " + id)
+	}
+	return game, nil
+}
+
+func UpdateGame(game *model.Game) (*model.Game, error) {
+	Games[game.ID] = game
+	return game, nil
+}
+
 func setTeamsForUsers(game *model.Game) {
 	userSize := len(game.Users)
 	redUsersRemaining := userSize / 2
@@ -86,8 +99,14 @@ func SetCardsForGame(game *model.Game) {
 		//Remove card if it was already used
 		allCards = slices.Delete(allCards, randomNumber, randomNumber+1)
 	}
-	firstTeam := chooseCardTypes(chosenCards)
-	game.Turn = firstTeam
+	blueCards, redCards := chooseCardTypes(chosenCards)
+	game.BlueCardsRemaining = blueCards
+	game.RedCardsRemaining = redCards
+	if redCards > blueCards {
+		game.Turn = model.Red
+	} else {
+		game.Turn = model.Blue
+	}
 	game.Cards = chosenCards
 }
 
@@ -109,28 +128,58 @@ func SelectedCard(gameId string, cardName string, user model.User) (model.Game, 
 	if !ok {
 		return model.Game{}, errors.New("No game ID found for ID: " + gameId)
 	}
+	if game.Turn != user.Team {
+		fmt.Println("It is not this user's turn! User team: " + user.Team.String())
+		return model.Game{}, errors.New("It is not this user's turn")
+	}
+	if game.State == model.Completed {
+		return model.Game{}, errors.New("The game is Over!")
+	}
 	card, ok := game.Cards[cardName]
 	if !ok {
 		return model.Game{}, errors.New("No card name found for name: " + cardName)
 	}
 	card.Selected = true
+	//If the assassin card is selected, the other team wins
+	if card.Type == model.Assassin {
+		game.Winner = user.Team.OtherTeam()
+		game.State = model.Completed
+	} else if card.Type != user.Team {
+		game.Turn = user.Team.OtherTeam()
+		game.Prompt = nil
+	} else {
+		if user.Team == model.Blue {
+			game.BlueCardsRemaining--
+			if game.BlueCardsRemaining == 0 {
+				game.Winner = model.Blue
+				game.State = model.Completed
+			}
+		} else if user.Team == model.Red {
+			game.RedCardsRemaining--
+			if game.RedCardsRemaining == 0 {
+				game.Winner = model.Red
+				game.State = model.Completed
+			}
+		}
+		game.GuessesRemaining--
+		if game.GuessesRemaining == 0 {
+			game.Turn = user.Team.OtherTeam()
+			game.Prompt = nil
+		}
+	}
+
 	return *game, nil
 }
 
-func chooseCardTypes(cards map[string]*model.Card) model.CardType {
+func chooseCardTypes(cards map[string]*model.Card) (int, int) {
 	randomNumber := rand.Intn(2)
-	blueCardsLeft := 8
-	redCardsLeft := 8
 	assassinCardsLeft := 1
 
-	var firstTeam model.CardType
+	totalRedCards, totalBlueCards := 8, 8
 	if randomNumber == 1 {
-		redCardsLeft++
-		firstTeam = model.Red
+		totalRedCards++
 	} else {
-		blueCardsLeft++
-		fmt.Println("Blue Goes First!")
-		firstTeam = model.Blue
+		totalBlueCards++
 	}
 
 	keys := make([]string, len(cards))
@@ -140,6 +189,8 @@ func chooseCardTypes(cards map[string]*model.Card) model.CardType {
 		i++
 	}
 
+	blueCardsLeft := totalBlueCards
+	redCardsLeft := totalRedCards
 	for redCardsLeft > 0 {
 		randomCardNumber := rand.Intn(len(cards))
 		currentKey := keys[randomCardNumber]
@@ -170,5 +221,5 @@ func chooseCardTypes(cards map[string]*model.Card) model.CardType {
 		}
 	}
 
-	return firstTeam
+	return totalBlueCards, totalRedCards
 }
